@@ -2,11 +2,16 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"net/http"
+	"sync"
+	"time"
 )
 
 // Wine has the attributes of each wine
 type Wine struct {
+	ID      string  `json:"id"`
 	Name    string  `json:"name"`
 	Year    int     `json:"year"`
 	Price   float32 `json:"price"`
@@ -15,40 +20,82 @@ type Wine struct {
 }
 
 type wineHandlers struct {
+	sync.Mutex
 	store map[string]Wine
 }
 
+func (h *wineHandlers) wines(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "GET":
+		h.get(w, r)
+		return
+	case "POST":
+		h.post(w, r)
+		return
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		w.Write([]byte("method not allowed"))
+		return
+	}
+}
 func (h *wineHandlers) get(w http.ResponseWriter, r *http.Request) {
 	wines := make([]Wine, len(h.store))
+	h.Lock()
 	i := 0
 	for _, wine := range h.store {
 		wines[i] = wine
 	}
+	h.Unlock()
 	jsonBytes, err := json.Marshal(wines)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(([]byte(err.Error())))
+		return
 	}
 	w.Header().Add("content-type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(jsonBytes)
 }
 
+func (h *wineHandlers) post(w http.ResponseWriter, r *http.Request) {
+	bodyBytes, err := ioutil.ReadAll((r.Body))
+	defer r.Body.Close()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(([]byte(err.Error())))
+		return
+	}
+
+	ct := r.Header.Get("content-type")
+	if ct != "application/json" {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		w.Write(([]byte(fmt.Sprintf("need content-type 'application/json', but got '%s'", ct))))
+		return
+	}
+
+	var wine Wine
+	err = json.Unmarshal(bodyBytes, &wine)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(([]byte(err.Error())))
+		return
+	}
+	wine.ID = fmt.Sprintf("%d", time.Now().UnixNano())
+	h.Lock()
+	h.store[wine.ID] = wine
+	w.WriteHeader(http.StatusCreated)
+	w.Write(([]byte("success")))
+	h.Unlock()
+}
+
 func newWineHandlers() *wineHandlers {
 	return &wineHandlers{
-		store: map[string]Wine{
-			"id1": Wine{
-				Name:   "Saint-Émilion Grand Cru (Premier Grand Cru Classé)",
-				Year:   2006,
-				Price:  2524.68,
-				Region: "Saint-Émilion Grand Cru",
-			},
-		},
+		store: map[string]Wine{},
 	}
 }
 
 func main() {
 	wineHandlers := newWineHandlers()
-	http.HandleFunc("/wines", wineHandlers.get)
+	http.HandleFunc("/wines", wineHandlers.wines)
 	http.ListenAndServe(":8000", nil)
 }
