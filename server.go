@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"sync"
 	"time"
 )
 
-// Wine has the attributes of each wine
+// Wine defines what attributes each wine must include
 type Wine struct {
 	ID      string  `json:"id"`
 	Name    string  `json:"name"`
@@ -44,6 +45,7 @@ func (h *wineHandlers) get(w http.ResponseWriter, r *http.Request) {
 	i := 0
 	for _, wine := range h.store {
 		wines[i] = wine
+		i++
 	}
 	h.Unlock()
 	jsonBytes, err := json.Marshal(wines)
@@ -95,7 +97,14 @@ func newWineHandlers() *wineHandlers {
 }
 
 func main() {
+	listenAddr := ":8000"
+
 	wineHandlers := newWineHandlers()
 	http.HandleFunc("/wines", wineHandlers.wines)
-	http.ListenAndServe(":8000", nil)
+
+	log.Println("Server is ready to handle requests at", listenAddr)
+
+	if err := http.ListenAndServe(listenAddr, nil); err != nil {
+		log.Fatalf("Could not listen on %s: %v\n", listenAddr, err)
+	}
 }
