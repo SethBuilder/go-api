@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 )
@@ -97,7 +98,7 @@ func newWineHandlers() *wineHandlers {
 }
 
 func main() {
-	listenAddr := ":8000"
+	listenAddr := ":" + os.Getenv("PORT")
 
 	wineHandlers := newWineHandlers()
 	http.HandleFunc("/wines", wineHandlers.wines)
