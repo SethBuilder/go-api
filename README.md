@@ -27,3 +27,7 @@ Simply import this [public collection](https://www.getpostman.com/collections/24
 
 ## Tests
 `go test`
+
+## To enhance
+1. Replace in-memory storge with a database.
+2. Implement [the DDD Hexagon](https://youtu.be/1rxDzs0zgcE?t=1688) to replace the current flat file structure.
