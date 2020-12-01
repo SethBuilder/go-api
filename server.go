@@ -26,6 +26,11 @@ type wineHandlers struct {
 	store map[string]Wine
 }
 
+type successResponse struct {
+	Success bool `json:"success"`
+	Wine    Wine `json:"wine"`
+}
+
 func (h *wineHandlers) wines(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
@@ -86,8 +91,17 @@ func (h *wineHandlers) post(w http.ResponseWriter, r *http.Request) {
 	wine.ID = fmt.Sprintf("%d", time.Now().UnixNano())
 	h.Lock()
 	h.store[wine.ID] = wine
+
+	response := successResponse{Success: true, Wine: wine}
+
+	jsonBytes, err := json.Marshal(response)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	w.Write(([]byte("success")))
+	w.Write(jsonBytes)
 	h.Unlock()
 }
 
